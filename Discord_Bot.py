@@ -1,6 +1,8 @@
 import discord,asyncio
-import json
+import json,datetime
 import functions
+
+approved_roles=['Admin','Moderator'] #add the name of the roles that can add keys and veiw player stats
 
 client=discord.Client()
 
@@ -15,8 +17,8 @@ async def on_ready():
 
 @client.event
 async def on_message(message):
-	global server_roles
-	server_roles=dict((role.name,role) for role in message.server.roles)
+	if message.server==None:
+		return
 
 	if message.content.lower().startswith('!purge'):
 		async for msg in client.logs_from(message.channel,limit=1000):
@@ -25,10 +27,11 @@ async def on_message(message):
 
 	if message.content.lower().startswith('!get_game'):
 		game=message.content[len('!get_game'):].lower().strip()
-		response=functions.get_game(game)
+		response=functions.get_game(game,message.author.mention)
 		if game not in response:
 			await client.send_message(message.channel,'{}, a key for **{}** has been sent to you.'.format(message.author.mention,game))
 			await client.send_message(message.author,'Here is your key for **{}**: {}'.format(game,response))
+
 		else:
 			await client.send_message(message.channel, response)
 
@@ -36,11 +39,15 @@ async def on_message(message):
 		embed=functions.make_list()
 		await client.send_message(message.channel,embed=embed)
 
+	if any(role.name in approved_roles for role in message.author.roles) and message.content.lower()=='!stats':
+		embed=functions.stats()
+		await client.send_message(message.author,embed=embed)
+
 	if message.content.lower().startswith('!help'):
 		embed=functions.help()
 		await client.send_message(message.channel,embed=embed)
 
-	if any(role==server_roles['Admin'] for role in message.author.roles) and message.content.lower()=='!add_key':
+	if any(role.name in approved_roles for role in message.author.roles) and message.content.lower()=='!add_key':
 		def game(msg):
 			return msg.content.startswith('$game')
 		def key(msg):
